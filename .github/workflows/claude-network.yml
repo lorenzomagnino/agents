@@ -1,0 +1,49 @@
+name: 🧠 Claude Network Review
+
+on:
+  workflow_call:
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+
+jobs:
+  network:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        with:
+          repository: lorenzomagnino/agents
+          path: .agent-hub
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install jax jaxlib torch pytest
+          pip install -r requirements.txt || true
+
+      - name: Compose prompt
+        run: |
+          cat .agent-hub/.github/prompts/_global.md > /tmp/prompt.md
+          cat .agent-hub/.github/prompts/agents/network.md >> /tmp/prompt.md
+
+      - name: Run Claude Network Agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          show_full_output: true
+          max_turns: 20
+          prompt_file: /tmp/prompt.md

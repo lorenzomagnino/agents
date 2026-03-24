@@ -1,0 +1,97 @@
+name: 🔥 Claude Flamegraph Profiler
+
+on:
+  workflow_call:
+    inputs:
+      script:
+        description: 'Script to profile (relative to repo root)'
+        required: false
+        type: string
+        default: 'src/main.py'
+      duration:
+        description: 'Profiling duration in seconds'
+        required: false
+        type: string
+        default: '30'
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+
+jobs:
+  flamegraph:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        with:
+          repository: lorenzomagnino/agents
+          path: .agent-hub
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install profiling tools
+        run: |
+          pip install pyinstrument py-spy scalene memray
+          pip install -r requirements.txt || true
+          sudo apt-get install -y linux-tools-common linux-tools-generic || true
+
+      - name: Run profiling suite
+        run: |
+          TARGET="${{ inputs.script }}"
+          mkdir -p profiling_output
+
+          echo "▶ pyinstrument (wall time)"
+          python -m pyinstrument --renderer html -o profiling_output/pyinstrument.html $TARGET || true
+
+          echo "▶ py-spy flamegraph (sampling profiler)"
+          sudo py-spy record \
+            --output profiling_output/flamegraph.svg \
+            --format speedscope \
+            --duration ${{ inputs.duration }} \
+            -- python $TARGET || true
+
+          echo "▶ scalene (CPU + GPU + memory)"
+          python -m scalene \
+            --html \
+            --outfile profiling_output/scalene_report.html \
+            $TARGET || true
+
+          echo "▶ memray (memory)"
+          python -m memray run \
+            -o profiling_output/memray.bin \
+            $TARGET || true
+          python -m memray flamegraph \
+            profiling_output/memray.bin \
+            -o profiling_output/memray_flamegraph.html || true
+
+      - name: Upload profiling artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: profiling-output
+          path: profiling_output/
+
+      - name: Compose prompt
+        run: |
+          cat .agent-hub/.github/prompts/_global.md > /tmp/prompt.md
+          TARGET_SCRIPT="${{ inputs.script }}" \
+            envsubst < .agent-hub/.github/prompts/agents/flamegraph.md >> /tmp/prompt.md
+
+      - name: Run Claude Profiling Analysis Agent
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          show_full_output: true
+          max_turns: 20
+          prompt_file: /tmp/prompt.md
