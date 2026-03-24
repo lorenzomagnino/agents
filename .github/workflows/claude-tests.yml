@@ -39,11 +39,16 @@ jobs:
           cat .agent-hub/.github/prompts/_global.md > /tmp/prompt.md
           cat .agent-hub/.github/prompts/agents/tests.md >> /tmp/prompt.md
 
+      - name: Read prompt
+        id: read_prompt
+        run: echo "content<<PROMPT_EOF" >> $GITHUB_OUTPUT && cat /tmp/prompt.md >> $GITHUB_OUTPUT && echo "PROMPT_EOF" >> $GITHUB_OUTPUT
+
       - name: Run Claude Tests Agent
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           show_full_output: true
-          max_turns: 20
-          prompt_file: /tmp/prompt.md
+          claude_args: --max-turns 20
+          prompt: ${{ steps.read_prompt.outputs.content }}
+
