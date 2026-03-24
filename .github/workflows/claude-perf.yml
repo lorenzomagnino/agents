@@ -1,13 +1,19 @@
-name: 🖥️ Claude Device & Parallelism
+name: ⚡ Claude Perf
 
 on:
   workflow_call:
+    inputs:
+      target_file:
+        description: 'Specific file to optimize (leave empty for full scan)'
+        required: false
+        type: string
+        default: ''
     secrets:
       ANTHROPIC_API_KEY:
         required: true
 
 jobs:
-  device:
+  perf:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -31,7 +37,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install jax jaxlib torch
+          pip install jax jaxlib numpy torch
           pip install -r requirements.txt || true
 
       - name: Detect CUDA availability
@@ -44,10 +50,11 @@ jobs:
       - name: Compose prompt
         run: |
           cat .agent-hub/.github/prompts/_global.md > /tmp/prompt.md
+          TARGET_FILE="${{ inputs.target_file || 'all files in /src/' }}" \
           CUDA_AVAILABLE="${{ steps.cuda.outputs.available }}" \
-            envsubst < .agent-hub/.github/prompts/agents/device.md >> /tmp/prompt.md
+            envsubst < .agent-hub/.github/prompts/agents/perf.md >> /tmp/prompt.md
 
-      - name: Run Claude Device Agent
+      - name: Run Claude Perf Agent
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}

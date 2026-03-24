@@ -53,8 +53,7 @@ The agent checks out your code, runs the task, writes a report to `reports/`, an
 | `claude-config.yml` | Migrate hardcoded values to Hydra config | — |
 | `claude-docker.yml` | Add/fix Dockerfile with multi-stage build | — |
 | `claude-tests.yml` | Fix failing tests, scaffold missing ones | — |
-| `claude-vectorize.yml` | Replace loops with NumPy/JAX, add `@jax.jit` | `target_file` |
-| `claude-device.yml` | CPU/GPU portability, parallelism | — |
+| `claude-perf.yml` | Vectorization, JIT, CPU/GPU portability, parallelism | `target_file` |
 | `claude-network.yml` | Neural network review and smoke tests | — |
 | `claude-flamegraph.yml` | Profile with py-spy/scalene/memray, then analyse | `script`, `duration` |
 
@@ -63,10 +62,10 @@ The agent checks out your code, runs the task, writes a report to `reports/`, an
 ## Agents with inputs
 
 ```yaml
-# Vectorize a specific file (omit target_file to scan all of /src/)
+# Optimize a specific file (omit target_file to scan all of /src/)
 jobs:
-  vectorize:
-    uses: lorenzomagnino/agents/.github/workflows/claude-vectorize.yml@main
+  perf:
+    uses: lorenzomagnino/agents/.github/workflows/claude-perf.yml@main
     with:
       target_file: 'src/train.py'
     secrets: inherit
